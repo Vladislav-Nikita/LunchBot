@@ -1,7 +1,7 @@
 import telebot
 from telebot import types
 
-bot = telebot.TeleBot('6491551409:AAEprVBKNaPqKEfIt33vCipdGCGn_aOCbQI')
+bot = telebot.TeleBot('TOKEN')
 
 user_orders = {}
 user_prices = {}
