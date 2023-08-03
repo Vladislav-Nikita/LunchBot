@@ -1,0 +1,15 @@
+[Soup] 
+Borsch: 3.25
+Hodgepodge: 2.9
+Cabbage soup: 2.5
+[Main]
+Steak: 5.1
+Chop: 4.5
+[Salad]
+Cesar: 3.5
+Olivie: 3
+Vinaigrette: 2.7
+[Drinks]
+Compote: 0.9
+Tea: 0.5
+Coffee: 1.2
