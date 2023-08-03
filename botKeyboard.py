@@ -6,6 +6,9 @@ bot = telebot.TeleBot('TOKEN')
 user_orders = {}
 user_prices = {}
 menu = {}
+allDishes = {}
+remove_mode = 0
+
 with open('menu.txt', 'r') as f:
     lines = f.readlines()
     category = ''
@@ -18,13 +21,13 @@ with open('menu.txt', 'r') as f:
             dish_name, dish_price = line.split(':')
             menu[category].update({dish_name: float(dish_price)})
 
-allDishes = {}
+
 dishies = list(menu.values())
 for i in dishies:
     allDishes.update(i)
 
 
-def createMenu(message_text=None, user_id=None):
+def create_menu(message_text=None, user_id=None):
     if message_text is None and user_id is None:  # Create start menu
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=4)
         btn_arr = []
@@ -52,7 +55,7 @@ def createMenu(message_text=None, user_id=None):
         return markup
 
 
-def orderMsg(message):
+def create_order_msg(message):
     global user_orders, user_prices, allDishes
     msg = 'Your order:\n'
     total_price = 0
@@ -68,7 +71,7 @@ def orderMsg(message):
 @bot.message_handler(commands=['start'])
 def start(message):
     bot.send_message(message.chat.id, f"Hello, {message.from_user.first_name}",
-                     reply_markup=createMenu())
+                     reply_markup=create_menu())
     # bot.send_message(message, f'Привет, {message.from_user}',reply_markup=markup)
 
 
@@ -78,11 +81,11 @@ def bot_message(message):
 
     if message.chat.type == 'private':
         if message.text in menu:
-            bot.send_message(message.chat.id, message.text, reply_markup=createMenu(message_text=message.text))
+            bot.send_message(message.chat.id, message.text, reply_markup=create_menu(message_text=message.text))
         elif message.text == 'Back':
             if remove_mode == 1:
                 remove_mode = 0
-            bot.send_message(message.chat.id, 'Back', reply_markup=createMenu())
+            bot.send_message(message.chat.id, 'Back', reply_markup=create_menu())
         elif message.text.split('-')[0].strip() in allDishes:
             dish_name = message.text.split('-')[0].strip()
             if message.from_user.username in user_orders:
@@ -93,7 +96,7 @@ def bot_message(message):
             else:
                 user_orders.update({message.from_user.username: {dish_name: 1}})
             bot.send_message(message.chat.id, f'{dish_name} added')
-            bot.send_message(message.chat.id, orderMsg(message))
+            bot.send_message(message.chat.id, create_order_msg(message))
 
         elif message.text.split('x')[0].strip() in allDishes:
             dish_name = message.text.split('x')[0].strip()
@@ -104,8 +107,8 @@ def bot_message(message):
                 del user_orders[message.from_user.username]
                 del user_prices[message.from_user.username]
             bot.send_message(message.chat.id, f'1 {dish_name} deleted',
-                             reply_markup=createMenu(user_id=message.from_user.username))
-            bot.send_message(message.chat.id, orderMsg(message))
+                             reply_markup=create_menu(user_id=message.from_user.username))
+            bot.send_message(message.chat.id, create_order_msg(message))
         elif message.text == 'Clear all':
             del user_orders[message.from_user.username]
             del user_prices[message.from_user.username]
@@ -114,7 +117,7 @@ def bot_message(message):
         elif message.text == 'Remove mode':
             remove_mode = 1
             bot.send_message(message.chat.id, 'Remove something!',
-                             reply_markup=createMenu(user_id=message.from_user.username))
+                             reply_markup=create_menu(user_id=message.from_user.username))
 
         elif message.text == 'Confirm order':
             f = open('orders.txt', 'w')
@@ -124,7 +127,7 @@ def bot_message(message):
                     f.write(f'{dish}    x{user_orders[user][dish]}\n')
                 f.write(f'Total: {user_prices[user]}')
                 f.write('\n_______________\n')
-            bot.send_message(message.chat.id, 'Bon appetit!')
+            bot.send_message(message.chat.id, 'Order confirmed!')
         else:
             bot.send_message(message.chat.id, 'Something wrong')
 
