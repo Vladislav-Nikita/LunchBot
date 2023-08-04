@@ -1,6 +1,7 @@
 import telebot
 from telebot import types
 from datetime import datetime
+import schedule
 
 bot = telebot.TeleBot('6491551409:AAEprVBKNaPqKEfIt33vCipdGCGn_aOCbQI')
 
@@ -183,4 +184,25 @@ def bot_message(message):
             bot.send_message(message.chat.id, 'Что-то не так')
 
 
-bot.polling()
+# Очистка заказов пока не работает
+def send_order():
+    global all_orders, totals
+
+    # Здесь добавить функцию, которая отправляет файл order.txt
+    all_orders = {}
+    totals = {}
+    f = open('orders.txt', 'w', encoding='utf-8')
+    f.seek(0)
+    f.close()
+    print('Orders cleared!')
+
+
+def main():
+    bot.polling()
+    schedule.every().day.at('14:00').do(send_order)
+    while True:
+        schedule.run_pending()
+
+
+if __name__ == '__main__':
+    main()
