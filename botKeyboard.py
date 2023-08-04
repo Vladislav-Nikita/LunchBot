@@ -1,7 +1,8 @@
 import telebot
 from telebot import types
 from datetime import datetime
-import schedule
+# import schedule
+# import mysql.connector
 
 bot = telebot.TeleBot('6491551409:AAEprVBKNaPqKEfIt33vCipdGCGn_aOCbQI')
 
@@ -19,6 +20,9 @@ menu = {}
 
 # Все блюда подряд: {dish1: price1, dish2: price2, ...}
 allDishes = {}
+
+# Список пользователей из бд
+# users_list = []
 
 with open('menu.txt', 'r', encoding='utf-8') as menu_file:
     lines = menu_file.readlines()
@@ -52,23 +56,22 @@ def create_menu(message_text=None, user_id=None):
     remove_btn = types.KeyboardButton(text='❌ Режим удаления')
     clear_btn = types.KeyboardButton(text='🗑 Удалить все')
 
-    if message_text is None and user_id is None:  # Create start menu
+    if message_text is None and user_id is None:  # Создание главного меню
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=4)
         btn_arr = []
-
         for m in menu:
             btn_arr.append(types.KeyboardButton(text=f'{m}'))
         markup.add(*btn_arr)
         markup.row(confirm_btn, remove_btn, clear_btn)
         return markup
-    elif message_text is not None:  # Create submenu
+    elif message_text is not None:  # Создание меню второго уровня
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         for dish, price in menu[message_text].items():
-            markup.add(types.KeyboardButton(text=f'{dish} - {price}'))
+            markup.add(types.KeyboardButton(text=f'{dish}: {price}'))
 
         markup.add(back_btn)
         return markup
-    else:  # Create remove mode menu
+    else:  # Создание меню в режиме удаления
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=3)
         btn_arr = []
         for dish, num in all_orders[user_id].items():
@@ -112,9 +115,17 @@ def create_order_file():
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.send_message(message.chat.id, f'Здравствуйте, '
-                                      f'{message.from_user.first_name}',
-                     reply_markup=create_menu())
+    if message.chat.type == 'private':
+        bot.send_message(message.chat.id, f'Здравствуйте, '
+                                          f'{message.from_user.first_name}',
+                         reply_markup=create_menu())
+    # Если добавлять пользователей из бд
+    # if message.chat.id in users_list:
+    #     bot.send_message(message.chat.id, f'Здравствуйте, '
+    #                                       f'{message.from_user.first_name}',
+    #                      reply_markup=create_menu())
+    # else:
+    #     bot.send_message(message.chat.id, 'Упс, неопознаный пользователь')
 
 
 # Обработка поступающих сообщений
@@ -122,6 +133,7 @@ def start(message):
 def bot_message(message):
     global menu, all_orders, totals, allDishes
 
+    # if message.chat.id in users_list:
     if message.chat.type == 'private':
         if message.text in menu:
             bot.send_message(message.chat.id, message.text,
@@ -132,8 +144,8 @@ def bot_message(message):
             bot.send_message(message.chat.id, '◀ Назад️',
                              reply_markup=create_menu())
 
-        elif message.text.split('-')[0].strip() in allDishes:
-            dish = message.text.split('-')[0].strip()
+        elif message.text.split(':')[0].strip() in allDishes:
+            dish = message.text.split(':')[0].strip()
             if message.from_user.id in all_orders:
                 if dish in all_orders[message.from_user.id]:
                     all_orders[message.from_user.id][dish] += 1
@@ -182,6 +194,9 @@ def bot_message(message):
 
         else:
             bot.send_message(message.chat.id, 'Что-то не так')
+    # else:
+    #     msg = 'Упс, неопознанный пользователь. Обращайтесь @username'
+    #     bot.send_message(message.chat.id, msg)
 
 
 # Очистка заказов пока не работает
@@ -189,19 +204,23 @@ def send_order():
     global all_orders, totals
 
     # Здесь добавить функцию, которая отправляет файл order.txt
+    bot.send_document(589562037, document=open('orders.txt', 'rb'))
     all_orders = {}
     totals = {}
     f = open('orders.txt', 'w', encoding='utf-8')
     f.seek(0)
     f.close()
-    print('Orders cleared!')
+    f = open('orders.txt', 'w', encoding='utf-8')
+    f.write(f'{datetime.now()}')
+    f.close()
 
 
 def main():
     bot.polling()
-    schedule.every().day.at('14:00').do(send_order)
-    while True:
-        schedule.run_pending()
+    # schedule.every().day.at('14:00').do(send_order)
+    # schedule.every(30).seconds.do(send_order)
+    # while True:
+    #     schedule.run_pending()
 
 
 if __name__ == '__main__':
