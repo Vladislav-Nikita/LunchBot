@@ -2,7 +2,7 @@ import telebot
 from telebot import types
 from datetime import datetime
 
-bot = telebot.TeleBot('TOKEN')
+bot = telebot.TeleBot('6491551409:AAEprVBKNaPqKEfIt33vCipdGCGn_aOCbQI')
 
 # Хранятся заказы в виде:
 # {user_id1: {dish1: num1, ...}, user_id2: {dish4: num3, ...}, ...}
@@ -164,6 +164,7 @@ def bot_message(message):
         elif message.text == '🗑 Удалить все':
             del all_orders[message.from_user.id]
             del totals[message.from_user.id]
+            create_order_file()
             bot.send_message(message.chat.id, 'Очищено!')
 
         elif message.text == '❌ Режим удаления':
