@@ -4,11 +4,20 @@ from datetime import datetime
 
 bot = telebot.TeleBot('TOKEN')
 
-user_orders = {}
-user_prices = {}
+# Хранятся заказы в виде:
+# {user_id1: {dish1: num1, ...}, user_id2: {dish4: num3, ...}, ...}
+all_orders = {}
+
+# Хранятся суммы заказов
+# {user_id1: total1, user_id2: total2,...}
+totals = {}
+
+# Меню в виде
+# {category1: {dish1: price1, dish2: price2, ...}, ...}
 menu = {}
+
+# Все блюда подряд: {dish1: price1, dish2: price2, ...}
 allDishes = {}
-remove_mode = 0
 
 with open('menu.txt', 'r', encoding='utf-8') as menu_file:
     lines = menu_file.readlines()
@@ -61,7 +70,7 @@ def create_menu(message_text=None, user_id=None):
     else:  # Create remove mode menu
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=3)
         btn_arr = []
-        for dish, num in user_orders[user_id].items():
+        for dish, num in all_orders[user_id].items():
             btn_arr.append(types.KeyboardButton(text=f'{dish}    x{num}'))
         markup.add(*btn_arr)
         markup.add(back_btn)
@@ -69,36 +78,35 @@ def create_menu(message_text=None, user_id=None):
 
 
 def create_order_msg(message):
-    global user_orders, user_prices, allDishes
+    global all_orders, totals, allDishes
 
     msg = 'Ваш заказ:\n'
     total_price = 0
-    for dish, num in user_orders[message.from_user.id].items():
+    for dish, num in all_orders[message.from_user.id].items():
         price = allDishes[dish]
-        # num = user_orders[message.from_user.id][dish]
         msg += f'{dish} -- {price}p.  x{num}\n'
         total_price += price * num
         total_price = round(total_price, 2)
     msg += f'\nИтого: {total_price}p.'
-    user_prices.update({message.from_user.id: total_price})
+    totals.update({message.from_user.id: total_price})
     return msg
 
 
 def create_order_file():
-    global user_orders, user_prices
+    global all_orders, totals
 
     f = open('orders.txt', 'w', encoding='utf-8')
-    for user in user_orders:
+    for user in all_orders:
         f.write(f'Пользователь {user} заказал:\n')
-        for dish, num in user_orders[user].items():
+        for dish, num in all_orders[user].items():
             f.write(f'{dish}    x{num}\n')
-        f.write(f'\nИтого: {user_prices[user]}\n')
+        f.write(f'\nИтого: {totals[user]}\n')
         f.write(f'Дата: {datetime.today().date().isoformat()}\n')
         order_time = datetime.today().time().isoformat(
             timespec='seconds')
         f.write(f'Время: {order_time}')
         f.write('\n_______________\n\n')
-        f.close()
+    f.close()
 
 
 @bot.message_handler(commands=['start'])
@@ -108,9 +116,10 @@ def start(message):
                      reply_markup=create_menu())
 
 
+# Обработка поступающих сообщений
 @bot.message_handler(content_types=['text'])
 def bot_message(message):
-    global remove_mode, menu, user_orders, user_prices, allDishes
+    global menu, all_orders, totals, allDishes
 
     if message.chat.type == 'private':
         if message.text in menu:
@@ -119,58 +128,55 @@ def bot_message(message):
                                  message_text=message.text))
 
         elif message.text == '◀ Назад️':
-            if remove_mode == 1:
-                remove_mode = 0
             bot.send_message(message.chat.id, '◀ Назад️',
                              reply_markup=create_menu())
 
         elif message.text.split('-')[0].strip() in allDishes:
             dish = message.text.split('-')[0].strip()
-            if message.from_user.id in user_orders:
-                if dish in user_orders[message.from_user.id]:
-                    user_orders[message.from_user.id][dish] += 1
+            if message.from_user.id in all_orders:
+                if dish in all_orders[message.from_user.id]:
+                    all_orders[message.from_user.id][dish] += 1
                 else:
-                    user_orders[message.from_user.id].update({dish: 1})
+                    all_orders[message.from_user.id].update({dish: 1})
             else:
-                user_orders.update({message.from_user.id: {dish: 1}})
+                all_orders.update({message.from_user.id: {dish: 1}})
             bot.send_message(message.chat.id, f'{dish} добавлен')
             bot.send_message(message.chat.id, create_order_msg(message))
 
         elif message.text.split('x')[0].strip() in allDishes:
             dish = message.text.split('x')[0].strip()
-            user_orders[message.from_user.id][dish] -= 1
- 
-            if user_orders[message.from_user.id][dish] == 0:
-                del user_orders[message.from_user.id][dish]
+            all_orders[message.from_user.id][dish] -= 1
 
-            if user_orders[message.from_user.id] == {}:
-                del user_orders[message.from_user.id]
-                del user_prices[message.from_user.id]
-                bot.send_message(message.chat.id, 'Заказ пуст',reply_markup=create_menu())
+            if all_orders[message.from_user.id][dish] == 0:
+                del all_orders[message.from_user.id][dish]
+
+            if all_orders[message.from_user.id] == {}:
+                del all_orders[message.from_user.id]
+                del totals[message.from_user.id]
+                bot.send_message(message.chat.id, 'Заказ пуст',
+                                 reply_markup=create_menu())
             else:
                 bot.send_message(message.chat.id, f'1 {dish} удален',
                                  reply_markup=create_menu(
                                      user_id=message.from_user.id))
                 bot.send_message(message.chat.id, create_order_msg(message))
 
-
         elif message.text == '🗑 Удалить все':
-            del user_orders[message.from_user.id]
-            del user_prices[message.from_user.id]
+            del all_orders[message.from_user.id]
+            del totals[message.from_user.id]
             bot.send_message(message.chat.id, 'Очищено!')
 
         elif message.text == '❌ Режим удаления':
-            remove_mode = 1
             bot.send_message(message.chat.id, 'Удалите что-либо',
                              reply_markup=create_menu(
                                  user_id=message.from_user.id))
 
         elif message.text == '✅ Оформить заказ':
-            if message.from_user.id in user_orders:
+            if message.from_user.id in all_orders:
                 create_order_file()
                 bot.send_message(message.chat.id, 'Заказ оформлен!')
             else:
-                bot.send_message(message.chat.id, 'Вы ничего не заказали')
+                bot.send_message(message.chat.id, 'Ваш заказ пуст')
 
         else:
             bot.send_message(message.chat.id, 'Что-то не так')
