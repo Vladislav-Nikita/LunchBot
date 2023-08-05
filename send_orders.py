@@ -6,7 +6,11 @@ import schedule
 def send_orders_file():
     global all_orders, totals, order_timings, cookers, admins
 
-    bot.send_document(cookers[-1], document=open('orders.txt', 'rb'))
+    bot.send_document(admins[0], document=open('orders.txt', 'rb'))  # Отправка заказов повару
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=4)
+    markup.add(types.KeyboardButton(text='Очистить заказы'))
+    markup.add(types.KeyboardButton(text='Очистить заказы'))
+    bot.send_message(admins[0], 'Заказы отправлены', reply_markup=markup)
     all_orders = {}
     totals = {}
     order_timings = {}
@@ -20,8 +24,8 @@ def send_orders_file():
 
 
 def main():
-    # schedule.every().day.at('14:00').do(send_orders_file)
-    schedule.every(10).seconds.do(send_orders_file)
+    schedule.every().day.at('14:00').do(send_orders_file)
+    # schedule.every(10).seconds.do(send_orders_file)
     while True:
         schedule.run_pending()
 

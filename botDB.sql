@@ -31,5 +31,11 @@ insert into users
 (user_tgid, first_name, last_name, username, special_role, credit_card)
 values
 (5170240692, 'User', 'OrGuest', 'someUser_Nase', null, 11111);
+
+delete from users
+where user_tgid = 5170240692;
+
 select user_tgid, username from users
-where users.special_role = 'cook' 
+where users.special_role = 'cook' ;
+
+select user_tgid, username from users
