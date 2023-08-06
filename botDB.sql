@@ -11,8 +11,12 @@ first_name varchar(50),
 last_name varchar(50),
 username varchar(50),
 special_role varchar(50),
-credit_card integer
+credit_card integer,
+total_in_month float default 0
 );
+
+
+#  Добавить таблицу с заказами
 
 insert into users
 (user_tgid, first_name, last_name, username, special_role, credit_card)
@@ -30,12 +34,27 @@ values
 insert into users
 (user_tgid, first_name, last_name, username, special_role, credit_card)
 values
-(5170240692, 'User', 'OrGuest', 'someUser_Nase', null, 11111);
+(5170240692, 'User', 'OrGuest', 'someUser_Nase', 'admin', 11111);
 
 delete from users
 where user_tgid = 5170240692;
 
+
+#____bl_sup______
+insert into users
+(user_tgid, first_name, last_name, username, special_role, credit_card)
+values
+(6321049452, 'B-Logic', 'Support', 'bl_sup', 'admin', 44444);
+
+
 select user_tgid, username from users
 where users.special_role = 'cook' ;
 
-select user_tgid, username from users
+select user_tgid, username, total_in_month from users;
+
+update users 
+set total_in_month = total_in_month + 10
+where user_tgid = 111111111;
+
+
+select * from users;
