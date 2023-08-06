@@ -17,6 +17,22 @@ total_in_month float default 0
 
 
 #  Добавить таблицу с заказами
+create table orders(
+order_id int primary key auto_increment,
+user_tgid bigint,
+create_date date,
+create_time time,
+price float,
+foreign key (user_tgid) references users(user_tgid)
+);
+
+insert into orders
+(user_tgid, create_date, create_time, price)
+values
+(589562037, '2023.08.07','18:00',12.3);
+delete from orders
+where user_tgid =589562037;
+
 
 insert into users
 (user_tgid, first_name, last_name, username, special_role, credit_card)

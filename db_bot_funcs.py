@@ -1,6 +1,8 @@
 import mysql.connector as sql
 
 
+orders_table_name = 'orders'
+orders_params = '(user_tgid, create_date, create_time, price)'
 users_table_name = 'users'
 
 
@@ -78,6 +80,19 @@ def update(connection: sql.MySQLConnection, table_name: str, index: str, res: st
         print(e)
 
 
+def insert(connection: sql.MySQLConnection, table_name: str, params: str, values: list):
+    try:
+        cur_con = connection
+        # cur_con.reset_session()
+        cursor = cur_con.cursor()
+        for i in values:
+            command_str = f'insert into {table_name} {params} values {tuple(i)};'
+            cursor.execute(command_str)
+        connection.commit()
+    except sql.Error as e:
+        print(e)
+
+
 def delete(connection: sql.MySQLConnection, table_name: str, cond: str):
     try:
         cur_con = connection
@@ -93,3 +108,17 @@ def delete(connection: sql.MySQLConnection, table_name: str, cond: str):
     except sql.Error as e:
         print(e)
 
+
+def increase_func(connection: sql.MySQLConnection, table_name: str, index: str, res: str, cond: str):
+    try:
+        table_name = table_name.strip("'")
+        index = index.strip("'")
+        res = res.strip("'")
+        command_str = f"""update {table_name} set {index} = {res} where {cond}"""
+        cur_con = connection
+        # cur_con.reset_session()
+        cursor = cur_con.cursor(prepared=True)
+        cursor.execute(command_str)
+        connection.commit()
+    except sql.Error as e:
+        print(e)

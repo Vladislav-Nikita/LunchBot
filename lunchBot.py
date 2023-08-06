@@ -2,8 +2,8 @@ import telebot
 from telebot import types
 from datetime import datetime
 from db_bot_funcs import *
-from send_orders import send_orders_file
 from ast import literal_eval
+# from main import send_time
 
 bot = telebot.TeleBot('6491551409:AAEprVBKNaPqKEfIt33vCipdGCGn_aOCbQI')
 
@@ -15,7 +15,8 @@ admins = []
 cooks = []
 admin_pass = 'oaq873ergf'
 cook_pass = 'zRgcu*T{zB'
-dead_time_hours = 23  # если указать 14, то нельзя заказывать после 14:00
+
+send_time = '19:24'
 
 
 def update_users():
@@ -173,8 +174,8 @@ def get_orders_vars_from_sys():
             elif line.startswith('Dish prices'):
                 sys_dish_prices = literal_eval(line[line.index(':') + 1:].strip())
         f.close()
-        return {'All orders': sys_orders, 'Order timings':sys_order_timings,
-                'Totals':sys_totals, 'Dish prices':sys_dish_prices}
+        return {'All orders': sys_orders, 'Order timings': sys_order_timings,
+                'Totals': sys_totals, 'Dish prices': sys_dish_prices}
     except Exception as e:
         bot.send_message(admins[0], f'get_orders_vars_from_sys bad\n{e}')
 
@@ -201,6 +202,7 @@ def create_orders_file():
         f.close()
     except Exception as e:
         bot.send_message(admins[0], "create_orders_file doesn't works\n" + str(e))
+
 
 # Записываем подтвержденные заказы в sys_orders.txt
 def create_sys_orders_file():
@@ -229,7 +231,7 @@ def create_message_menu():
             for dish, price in menu[categ].items():
                 msg += f'{dish} -- {price}\n'
                 if dish in dish_info:
-                    msg+=f'{dish_info[dish]}\n'
+                    msg += f'{dish_info[dish]}\n'
         return msg
     except Exception as e:
         bot.send_message(admins[0], f'create_message_menu bad\n{e}')
@@ -263,14 +265,16 @@ def authorization_request(message, role='пользователь', recipient=ad
 
 
 def is_good_time():
-    global menu_date_obj, dead_time_hours
+    global menu_date_obj, send_time
+
+    send_time_obj = datetime.strptime(send_time, "%H:%M").time()
     delta = menu_date_obj.date() - datetime.now().date()
-    if delta.days > 1 or (datetime.now().hour < dead_time_hours and delta.days == 0):
+    if delta.days > 1 or (datetime.now().time() < send_time_obj and delta.days == 1):
         return True
     else:
         return False
-    
-    
+
+
 def on_delete_order(us_id):
     global totals, all_orders, order_timings
 
@@ -281,7 +285,7 @@ def on_delete_order(us_id):
     create_sys_orders_file()
     create_orders_file()
     bot.send_message(us_id, 'Заказ пуст', reply_markup=create_buttons())
-    
+
 
 @bot.message_handler(commands=['start'])
 def start(message):
