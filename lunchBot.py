@@ -3,9 +3,34 @@ from telebot import types
 from datetime import datetime
 from db_bot_funcs import *
 from ast import literal_eval
+
+
 # from main import send_time
 
-bot = telebot.TeleBot('6491551409:AAEprVBKNaPqKEfIt33vCipdGCGn_aOCbQI')
+
+class ExceptionHandler(telebot.ExceptionHandler):
+    def handle(self, ex):
+        global admins
+
+        print(ex)
+        bot.send_message(admins[0], ex)
+        return True
+
+
+bot = telebot.TeleBot('6491551409:AAEprVBKNaPqKEfIt33vCipdGCGn_aOCbQI', exception_handler=ExceptionHandler())
+
+# поменять команды для разных ролей
+# https://stackoverflow.com/questions/74959699/telebot-how-to-create-a-list-of-commands-manually-and-unique-for-different-user
+bot.set_my_commands(
+    commands=[
+        telebot.types.BotCommand('/role', 'role'),
+        telebot.types.BotCommand('/get_users_totals', 'get_users_totals'),
+        telebot.types.BotCommand('/get_all_orders', 'get_all_orders'),
+        telebot.types.BotCommand('/get_my_monthly_check', 'get_my_monthly_check'),
+        telebot.types.BotCommand('/get_my_monthly_orders', 'get_my_monthly_orders'),
+        telebot.types.BotCommand('/cmds', 'cmds')
+    ]
+)
 
 us_tab_nam = users_table_name
 # Получаем из бд
@@ -103,6 +128,7 @@ def init_menu():
         menu_file.close()
         for i in list(menu.values()):
             dish_prices.update(i)
+        rassilka(valid_users, 'Готов принять ваш заказ')
     except Exception as e:
         bot.send_message(admins[0], f"init_menu doesn't works\n{e}")
 
@@ -275,6 +301,11 @@ def is_good_time():
         return False
 
 
+def rassilka(users_list:list, msg:str):
+    for user in users_list:
+        bot.send_message(user, msg)
+
+
 def on_delete_order(us_id):
     global totals, all_orders, order_timings
 
@@ -306,6 +337,65 @@ def stop(message):
 
     delete(get_connection(), us_tab_nam, f'user_tgid={message.chat.id}')
     bot.send_message(message.chat.id, 'Вы были удалены из базы данных LunchBot')
+
+
+@bot.message_handler(commands=['role'])
+def send_users_role(message):
+    if message.chat.id in admins:
+        bot.send_message(message.chat.id, 'Админ')
+    elif message.chat.id in cooks:
+        bot.send_message(message.chat.id, 'Повар')
+    elif message.chat.id in valid_users:
+        bot.send_message(message.chat.id, "Авторизованный пользователь")
+    else:
+        bot.send_message(message.chat.id, "Неавторизованный пользователь")
+
+
+@bot.message_handler(commands=['get_users_totals'])
+def send_totals_file(message):
+    if message.chat.id in admins:
+        export_table_as_csv(get_connection(), users_table_name, 'user_totals.csv')
+        bot.send_document(message.chat.id, document=open(f'user_totals.csv', 'rb'))
+
+
+@bot.message_handler(commands=['get_all_orders'])
+def send_all_orders(message):
+    if message.chat.id in admins:
+        export_table_as_csv(get_connection(), orders_table_name, 'all_orders.csv')
+        bot.send_document(message.chat.id, document=open(f'all_orders.csv', 'rb'))
+
+
+@bot.message_handler(commands=['get_my_monthly_orders'])
+def send_user_orders(message):
+    export_users_orders(get_connection(), 'orders', 'user_orders.csv', message.chat.id)
+    bot.send_document(message.chat.id, document=open(f'user_orders.csv', 'rb'))
+
+
+@bot.message_handler(commands=['get_my_monthly_check'])
+def send_user_total(message):
+    bot.send_message(message.chat.id, user_total(get_connection(), users_table_name, message.chat.id))
+
+
+@bot.message_handler(commands=['cmds'])
+def allowed_commands_list(message):
+    msg = "Список доступных команд:\n"
+    msg += '/start\n'
+    msg += '/role\n'
+    if message.chat.id in admins:
+        msg += '/get_users_totals\n'
+        msg += '/get_all_orders\n'
+        msg += '/get_my_monthly_orders\n'
+        msg += '/get_my_monthly_check\n'
+        msg += '/stop\n'
+    elif message.chat.id in cooks:
+        msg += '/stop\n'
+    elif message.chat.id in valid_users:
+        msg += '/get_my_monthly_orders\n'
+        msg += '/get_my_monthly_check\n'
+        msg += '/stop\n'
+    else:
+        pass
+    bot.send_message(message.chat.id, msg)
 
 
 # Обработка поступающих сообщений

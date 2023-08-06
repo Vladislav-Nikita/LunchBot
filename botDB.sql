@@ -73,4 +73,5 @@ set total_in_month = total_in_month + 10
 where user_tgid = 111111111;
 
 
+select * from orders;
 select * from users;
