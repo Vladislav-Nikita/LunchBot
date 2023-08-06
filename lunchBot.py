@@ -419,7 +419,7 @@ def download_menu_file(message):
             with open(fname, 'wb') as new_file:
                 new_file.write(downloaded_file)
             new_file.close()
-            send_orders_file()
+            # send_orders_file()
             init_menu()
             if message.chat.id in admins:
                 bot.send_message(message.chat.id, 'Меню принято', reply_markup=create_buttons())
