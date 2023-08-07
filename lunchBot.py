@@ -1,11 +1,12 @@
 import telebot
 from telebot import types
-from datetime import datetime
+from datetime import datetime, timedelta
 from db_bot_funcs import *
 from ast import literal_eval
 
 
 # from main import send_time
+send_time = '14:00'
 
 
 class ExceptionHandler(telebot.ExceptionHandler):
@@ -17,7 +18,9 @@ class ExceptionHandler(telebot.ExceptionHandler):
         return True
 
 
-bot = telebot.TeleBot('6491551409:AAEprVBKNaPqKEfIt33vCipdGCGn_aOCbQI', exception_handler=ExceptionHandler())
+
+bot = telebot.TeleBot('6491551409:AAEprVBKNaPqKEfIt33vCipdGCGn_aOCbQI',
+                      exception_handler=ExceptionHandler())
 
 # поменять команды для разных ролей
 # https://stackoverflow.com/questions/74959699/telebot-how-to-create-a-list-of-commands-manually-and-unique-for-different-user
@@ -28,7 +31,9 @@ bot.set_my_commands(
         telebot.types.BotCommand('/get_all_orders', 'get_all_orders'),
         telebot.types.BotCommand('/get_my_monthly_check', 'get_my_monthly_check'),
         telebot.types.BotCommand('/get_my_monthly_orders', 'get_my_monthly_orders'),
-        telebot.types.BotCommand('/cmds', 'cmds')
+        telebot.types.BotCommand('/cmds', 'cmds'),
+        telebot.types.BotCommand('/timings','/timings'),
+        telebot.types.BotCommand('/inc_send_time', '/inc_send_time')
     ]
 )
 
@@ -41,7 +46,6 @@ cooks = []
 admin_pass = 'oaq873ergf'
 cook_pass = 'zRgcu*T{zB'
 
-send_time = '19:24'
 
 
 def update_users():
@@ -91,6 +95,11 @@ def day_of_week(date_str):
     return weekdays_list[datetime.strptime(date_str, "%d.%m.%Y").weekday()]
 
 
+def rassilka(users_list: list, msg: str):
+    for user in users_list:
+        bot.send_message(user, msg)
+
+
 def init_menu():
     global menu, dish_prices, menu_date, menu_date_obj, dish_info, all_orders, \
         totals, order_timings
@@ -99,6 +108,7 @@ def init_menu():
         menu, dish_prices, menu_date, menu_date_obj, dish_info = {}, {}, '', None, {}
 
         all_orders, totals, order_timings = {}, {}, {}
+
 
         with open('menu.txt', 'r', encoding='utf-8') as menu_file:
             lines = menu_file.readlines()
@@ -128,7 +138,7 @@ def init_menu():
         menu_file.close()
         for i in list(menu.values()):
             dish_prices.update(i)
-        rassilka(valid_users, 'Готов принять ваш заказ')
+        # rassilka(valid_users, 'Готов принять ваш заказ')
     except Exception as e:
         bot.send_message(admins[0], f"init_menu doesn't works\n{e}")
 
@@ -211,7 +221,8 @@ def create_orders_file():
     global menu_date, user_nicknames
 
     try:
-        sys_orders, sys_order_timings, sys_totals, sys_dish_prices = get_orders_vars_from_sys().values()
+        sys_orders, sys_order_timings, sys_totals, sys_dish_prices = \
+            get_orders_vars_from_sys().values()
 
         # ормируем файл нужного формата
         f = open('orders.txt', 'w', encoding='utf-8')
@@ -244,6 +255,8 @@ def create_sys_orders_file():
     except Exception as e:
         bot.send_message(admins[0], "create_sys_orders_file doesn't works\n" + str(e))
 
+create_sys_orders_file()
+create_orders_file()
 
 # Функция кнопки "Показать меню"
 def create_message_menu():
@@ -290,8 +303,8 @@ def authorization_request(message, role='пользователь', recipient=ad
     bot.send_message(message.chat.id, msg, reply_markup=markup)
 
 
-def is_good_time():
-    global menu_date_obj, send_time
+def is_good_time(send_time=send_time):
+    global menu_date_obj
 
     send_time_obj = datetime.strptime(send_time, "%H:%M").time()
     delta = menu_date_obj.date() - datetime.now().date()
@@ -301,21 +314,19 @@ def is_good_time():
         return False
 
 
-def rassilka(users_list:list, msg:str):
-    for user in users_list:
-        bot.send_message(user, msg)
-
-
+# Doesn't works
 def on_delete_order(us_id):
     global totals, all_orders, order_timings
+    try:
+        del all_orders[us_id]
+        del totals[us_id]
+        del order_timings[us_id]
 
-    del all_orders[us_id]
-    del totals[us_id]
-    del order_timings[us_id]
-
-    create_sys_orders_file()
-    create_orders_file()
-    bot.send_message(us_id, 'Заказ пуст', reply_markup=create_buttons())
+        create_sys_orders_file()
+        create_orders_file()
+        bot.send_message(us_id, 'Заказ пуст', reply_markup=create_buttons())
+    except Exception as e:
+        print(e)
 
 
 @bot.message_handler(commands=['start'])
@@ -352,10 +363,25 @@ def send_users_role(message):
 
 
 @bot.message_handler(commands=['get_users_totals'])
-def send_totals_file(message):
+def send_users_table_as_csv(message):
     if message.chat.id in admins:
-        export_table_as_csv(get_connection(), users_table_name, 'user_totals.csv')
-        bot.send_document(message.chat.id, document=open(f'user_totals.csv', 'rb'))
+        export_table_as_csv(get_connection(), users_table_name, 'users_table.csv')
+        bot.send_document(message.chat.id, document=open(f'users_table.csv', 'rb'))
+
+@bot.message_handler(commands=['timings'])
+def change_send_time(message):
+    global send_time
+    if message.chat.id in admins:
+        send_time = (datetime.now()+timedelta(minutes=1)).time().isoformat("minutes")
+        bot.send_message(message.chat.id, f'Send_time={send_time}')
+
+
+@bot.message_handler(commands=['inc_send_time'])
+def inc_send_time(message):
+    global send_time
+    if message.chat.id in admins:
+        send_time = (datetime.strptime(send_time,"%H:%M")+timedelta(minutes=1)).time().isoformat("minutes")
+        bot.send_message(message.chat.id, f'Send_time={send_time}')
 
 
 @bot.message_handler(commands=['get_all_orders'])
@@ -373,7 +399,9 @@ def send_user_orders(message):
 
 @bot.message_handler(commands=['get_my_monthly_check'])
 def send_user_total(message):
-    bot.send_message(message.chat.id, user_total(get_connection(), users_table_name, message.chat.id))
+    bot.send_message(message.chat.id,
+                     f'Ваша сумма за текущий месяц: '
+                     f'{user_total(get_connection(), users_table_name, message.chat.id)}')
 
 
 @bot.message_handler(commands=['cmds'])
@@ -402,14 +430,14 @@ def allowed_commands_list(message):
 @bot.message_handler(content_types=['text'])
 def bot_message(message):
     global menu, all_orders, totals, dish_prices, valid_users, admins, \
-        cooks, menu_date, order_timings
+        cooks, menu_date, order_timings, send_time
 
     try:
         update_users()
 
         if message.chat.id in valid_users and message.chat.id not in cooks:  # Пользователь авторизован и роль не повар
 
-            if is_good_time():  # Проверка по времени
+            if is_good_time(send_time):  # Проверка по времени
                 if message.text in menu:
                     bot.send_message(message.chat.id, message.text,
                                      reply_markup=create_buttons(
@@ -439,15 +467,30 @@ def bot_message(message):
                         del all_orders[message.chat.id][dish]
 
                     if all_orders[message.chat.id] == {}:
-                        on_delete_order(message.chat.id)
+                        # on_delete_order func
+                        del all_orders[message.chat.id]
+                        del totals[message.chat.id]
+                        del order_timings[message.chat.id]
+
+                        create_sys_orders_file()
+                        create_orders_file()
+                        bot.send_message(message.chat.id, 'Заказ пуст', reply_markup=create_buttons())
                     else:
                         bot.send_message(message.chat.id, f'1 {dish} удален',
                                          reply_markup=create_buttons(
                                              user_id=message.chat.id))
-                        bot.send_message(message.chat.id, create_order_msg(message))
+                        bot.send_message(message.chat.id,
+                                         create_order_msg(message))
 
                 elif message.text == '🗑 Удалить все':
-                    on_delete_order(message.chat.id)
+                    # on_delete_order func
+                    del all_orders[message.chat.id]
+                    del totals[message.chat.id]
+                    del order_timings[message.chat.id]
+
+                    create_sys_orders_file()
+                    create_orders_file()
+                    bot.send_message(message.chat.id, 'Заказ пуст', reply_markup=create_buttons())
 
                 elif message.text == '❌ Режим удаления':
                     bot.send_message(message.chat.id, 'Удалите что-либо',
@@ -465,16 +508,21 @@ def bot_message(message):
                         create_sys_orders_file()
                         create_orders_file()
                         bot.send_message(message.chat.id, 'Заказ оформлен!')
+                        bot.send_message(message.chat.id,
+                                         create_order_msg(message))
                     else:
                         bot.send_message(message.chat.id, 'Ваш заказ пуст')
 
                 elif message.text == 'Показать меню':
-                    bot.send_message(message.chat.id, create_message_menu(), parse_mode='Markdown')
+                    bot.send_message(message.chat.id, create_message_menu(),
+                                     parse_mode='Markdown')
 
                 else:
-                    bot.send_message(message.chat.id, 'Что-то не так', reply_markup=create_buttons())
+                    bot.send_message(message.chat.id, 'Что-то не так',
+                                     reply_markup=create_buttons())
             else:
-                bot.send_message(message.chat.id, 'В данное время заказы не принимаются')
+                bot.send_message(message.chat.id,
+                                 'В данное время заказы не принимаются')
 
         else:  # Пользователь не авторизован и/или  у него роль повара
             if message.text == 'Да' or message.text == 'Попробовать снова':
@@ -482,7 +530,7 @@ def bot_message(message):
             elif message.text == 'Готово' and message.chat.id not in cooks:
                 markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
                 markup.add(types.KeyboardButton(text='Готово'))
-                markup.add(types.KeyboardButton(text='Готово'))
+                markup.add(types.KeyboardButton(text='Попробовать снова'))
                 bot.send_message(message.chat.id, 'Попробуйте позже',
                                  reply_markup=markup)
             elif message.chat.id in cooks:
@@ -516,8 +564,10 @@ def download_menu_file(message):
             # send_orders_file()
             init_menu()
             if message.chat.id in admins:
-                bot.send_message(message.chat.id, 'Меню принято', reply_markup=create_buttons())
+                bot.send_message(message.chat.id, 'Меню принято',
+                                 reply_markup=create_buttons())
             else:
                 bot.send_message(message.chat.id, 'Меню принято')
     else:
-        bot.send_message(message.chat.id, 'Файл с меню могут отправлять только повара и админы')
+        bot.send_message(message.chat.id, 'Файл с меню могут '
+                                          'отправлять только повара и админы')
