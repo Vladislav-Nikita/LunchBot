@@ -29,7 +29,8 @@ def get_all_table_as_list(connection: sql.MySQLConnection, table_name: str):
         print(e)
 
 
-def get_all_users_id_as_list(connection: sql.MySQLConnection, table_name=users_table_name, role=None):
+def get_all_users_id_as_list(connection: sql.MySQLConnection,
+                             table_name=users_table_name, role=None):
     try:
         cur_con = connection
         cur_con.reset_session()
@@ -151,7 +152,8 @@ def export_table_as_csv(connection: sql.MySQLConnection, table_name: str, file_n
         print(e)
 
 
-def export_users_orders(connection: sql.MySQLConnection, table_name: str, file_name: str, user_tgid):
+def export_users_orders(connection: sql.MySQLConnection,
+                        table_name: str, file_name: str, user_tgid):
     try:
         cur_con = connection
         cur_con.reset_session()
@@ -186,7 +188,8 @@ def user_total(connection: sql.MySQLConnection, table_name: str, user_tgid):
         print(e)
 
 
-def increase_func(connection: sql.MySQLConnection, table_name: str, index: str, res: str, cond: str):
+def increase_func(connection: sql.MySQLConnection, table_name: str,
+                  index: str, res: str, cond: str):
     try:
         table_name = table_name.strip("'")
         index = index.strip("'")

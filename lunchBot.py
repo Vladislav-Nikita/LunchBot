@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from db_bot_funcs import *
 from ast import literal_eval
 
-
 # from main import send_time
 send_time = '14:00'
 
@@ -16,7 +15,6 @@ class ExceptionHandler(telebot.ExceptionHandler):
         print(ex)
         bot.send_message(admins[0], ex)
         return True
-
 
 
 bot = telebot.TeleBot('6491551409:AAEprVBKNaPqKEfIt33vCipdGCGn_aOCbQI',
@@ -32,7 +30,7 @@ bot.set_my_commands(
         telebot.types.BotCommand('/get_my_monthly_check', 'get_my_monthly_check'),
         telebot.types.BotCommand('/get_my_monthly_orders', 'get_my_monthly_orders'),
         telebot.types.BotCommand('/cmds', 'cmds'),
-        telebot.types.BotCommand('/timings','/timings'),
+        telebot.types.BotCommand('/timings', '/timings'),
         telebot.types.BotCommand('/inc_send_time', '/inc_send_time')
     ]
 )
@@ -45,7 +43,6 @@ admins = []
 cooks = []
 admin_pass = 'oaq873ergf'
 cook_pass = 'zRgcu*T{zB'
-
 
 
 def update_users():
@@ -108,7 +105,6 @@ def init_menu():
         menu, dish_prices, menu_date, menu_date_obj, dish_info = {}, {}, '', None, {}
 
         all_orders, totals, order_timings = {}, {}, {}
-
 
         with open('menu.txt', 'r', encoding='utf-8') as menu_file:
             lines = menu_file.readlines()
@@ -255,8 +251,10 @@ def create_sys_orders_file():
     except Exception as e:
         bot.send_message(admins[0], "create_sys_orders_file doesn't works\n" + str(e))
 
+
 create_sys_orders_file()
 create_orders_file()
+
 
 # Функция кнопки "Показать меню"
 def create_message_menu():
@@ -320,8 +318,10 @@ def on_delete_order(us_id):
     try:
         del all_orders[us_id]
         del totals[us_id]
-        del order_timings[us_id]
-
+        try:
+            del order_timings[us_id]
+        except:
+            pass
         create_sys_orders_file()
         create_orders_file()
         bot.send_message(us_id, 'Заказ пуст', reply_markup=create_buttons())
@@ -368,11 +368,12 @@ def send_users_table_as_csv(message):
         export_table_as_csv(get_connection(), users_table_name, 'users_table.csv')
         bot.send_document(message.chat.id, document=open(f'users_table.csv', 'rb'))
 
+
 @bot.message_handler(commands=['timings'])
 def change_send_time(message):
     global send_time
     if message.chat.id in admins:
-        send_time = (datetime.now()+timedelta(minutes=1)).time().isoformat("minutes")
+        send_time = (datetime.now() + timedelta(minutes=1)).time().isoformat("minutes")
         bot.send_message(message.chat.id, f'Send_time={send_time}')
 
 
@@ -380,7 +381,7 @@ def change_send_time(message):
 def inc_send_time(message):
     global send_time
     if message.chat.id in admins:
-        send_time = (datetime.strptime(send_time,"%H:%M")+timedelta(minutes=1)).time().isoformat("minutes")
+        send_time = (datetime.strptime(send_time, "%H:%M") + timedelta(minutes=1)).time().isoformat("minutes")
         bot.send_message(message.chat.id, f'Send_time={send_time}')
 
 
@@ -467,14 +468,7 @@ def bot_message(message):
                         del all_orders[message.chat.id][dish]
 
                     if all_orders[message.chat.id] == {}:
-                        # on_delete_order func
-                        del all_orders[message.chat.id]
-                        del totals[message.chat.id]
-                        del order_timings[message.chat.id]
-
-                        create_sys_orders_file()
-                        create_orders_file()
-                        bot.send_message(message.chat.id, 'Заказ пуст', reply_markup=create_buttons())
+                        on_delete_order(message.chat.id)
                     else:
                         bot.send_message(message.chat.id, f'1 {dish} удален',
                                          reply_markup=create_buttons(
@@ -484,14 +478,7 @@ def bot_message(message):
 
                 elif message.text == '🗑 Удалить все':
                     # on_delete_order func
-                    del all_orders[message.chat.id]
-                    del totals[message.chat.id]
-                    del order_timings[message.chat.id]
-
-                    create_sys_orders_file()
-                    create_orders_file()
-                    bot.send_message(message.chat.id, 'Заказ пуст', reply_markup=create_buttons())
-
+                    on_delete_order(message.chat.id)
                 elif message.text == '❌ Режим удаления':
                     bot.send_message(message.chat.id, 'Удалите что-либо',
                                      reply_markup=create_buttons(

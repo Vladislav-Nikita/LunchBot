@@ -60,8 +60,18 @@ where user_tgid = 5170240692;
 insert into users
 (user_tgid, first_name, last_name, username, special_role, credit_card)
 values
-(6321049452, 'B-Logic', 'Support', 'bl_sup', 'admin', 44444);
+(6321049452, 'B-Logic', 'Support', 'bl_sup', null, 44444);
 
+update users
+set special_role = 'admin'
+where user_tgid = 6321049452;
+
+
+#____rom_gol______
+insert into users
+(user_tgid, first_name, last_name, username, special_role, credit_card)
+values
+(1075934151, 'Голуб', 'Романович', 'Rom_G0', null, 090909);
 
 select user_tgid, username from users
 where users.special_role = 'cook' ;
@@ -72,6 +82,23 @@ update users
 set total_in_month = total_in_month + 10
 where user_tgid = 111111111;
 
+
+-- create table test(
+-- order_id int primary key auto_increment,
+-- nase varchar(20)
+-- );
+
+-- insert into test
+-- (nase)
+-- values
+-- ('biba'),
+-- ('boba'),
+-- ('Cool Name');
+
+-- select * from test;
+
+-- drop table test;
+delete from orders;
 
 select * from orders;
 select * from users;

@@ -1,8 +1,10 @@
 from lunchBot import *
+from db_bot_funcs import users_table_name, orders_table_name
 import schedule
 
+send_time = '15:51'
+send_users_table_day = 16
 
-send_time = '19:24'
 
 def increase_totals_in_db():
     global users_table_name, admins
@@ -35,15 +37,15 @@ def update_orders_table():
         bot.send_message(admins[0], f'update_orders_table bad\n{e}')
 
 
-
-
-
 # Отправляет файл orders.txt cooks[0] и добавляет сумму на счет
 def send_orders_file():
-    global cooks, admins, menu_date_obj
+    global cooks, admins, menu_date_obj, menu_date
 
     delta = menu_date_obj.date() - datetime.today().date()
-    if delta.days == 1:
+
+    if len(get_orders_vars_from_sys()['All orders']) == 0:
+        bot.send_message(admins[0], f'Заказов на {menu_date} нет')
+    elif delta.days == 1:
         increase_totals_in_db()
         update_orders_table()
         create_orders_file()
@@ -68,22 +70,44 @@ def send_orders_file():
         f.close()
 
 
-# Функция, которая каждый месяц отправляет файл с пользователями,
+def send_users_table_as_csv(recipient=admins[0]):
+    global cooks, admins, users_table_name
+
+    export_table_as_csv(get_connection(), users_table_name, 'users_table.csv')
+    bot.send_document(recipient, document=open(f'users_table.csv', 'rb'))
+
+
+# Функция, которая каждый месяц send_users_table_day числа
+# отправляет файл с пользователями,
 # очищает заказы из бд и total_in_month=0
-def send_user_totals():
-    pass
+
+def monthly_func():
+    global cooks, admins, menu_date_obj, menu_date
+
+    if datetime.today().day == send_users_table_day:
+        send_users_table_as_csv()
+
+        # Обнуление счета за месяц
+        update(get_connection(), users_table_name, 'total_in_month', '0', 'total_in_month>0')
+
+        # Очистка тааблицы с заказами
+        delete(get_connection(), orders_table_name, 'order_id>0')
+
 
 
 def main():
     try:
         global send_time, menu_date_obj
+
         schedule.every().day.at(send_time).do(send_orders_file)
 
-        # Добавить schedule для send_user_totals
+        # schedule.every().day.at((datetime.strptime(send_time, '%H:%M')
+        #                          + timedelta(seconds=20)).time().isoformat()).do(monthly_func)
         while True:
             schedule.run_pending()
     except Exception as e:
         print(e)
+
 
 if __name__ == '__main__':
     main()
