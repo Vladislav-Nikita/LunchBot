@@ -11,6 +11,10 @@ try:
                 db_name = line.split('=')[-1].strip('\n')
             elif line.startswith('db_pass'):
                 db_pass = line.split('=')[-1].strip('\n')
+            elif line.startswith('host'):
+                db_host = line.split('=')[-1].strip('\n')
+            elif line.startswith('port'):
+                db_port = line.split('=')[-1].strip('\n')
             elif line.startswith('db_username'):
                 db_username = line.split('=')[-1].strip('\n')
             elif line.startswith('users_table_name'):
@@ -22,12 +26,14 @@ try:
 except Exception as e:
     print(e)
 
+# db_host = 'localhost'
+# db_port = '5432'
 
-def get_connection(username=db_username, db=db_name, password=db_pass):
+def get_connection(username=db_username, db=db_name, password=db_pass, cur_host=db_host, cur_port=db_port):
     try:
         # cur_pass = getpass("input password: ")
         cur_pass = password
-        cnx = pg.connect(user=username, password=cur_pass, database=db)
+        cnx = pg.connect(user=username, password=cur_pass, database=db, host=cur_host, port=cur_port)
         return cnx
     except pg.Error as e:
         print(e)

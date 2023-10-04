@@ -9,6 +9,7 @@ from ast import literal_eval
 # import schedule
 # import psycopg2 as pg
 import time
+
 # import logging
 # from pg_bot_funcs import users_table_name, orders_table_name
 
@@ -20,6 +21,10 @@ try:
                 TOKEN = line.split('=')[-1].strip('\n')
             elif line.startswith('db_name'):
                 db_name = line.split('=')[-1].strip('\n')
+            elif line.startswith('host'):
+                db_host = line.split('=')[-1].strip('\n')
+            elif line.startswith('port'):
+                db_port = line.split('=')[-1].strip('\n')
             elif line.startswith('db_pass'):
                 db_pass = line.split('=')[-1].strip('\n')
             elif line.startswith('db_username'):
@@ -36,8 +41,11 @@ try:
 except Exception as e:
     bot.send_message(admins[0], f"ini_file doesn't works\n{e}")
 
-
+db_host = 'localhost'
+db_port = '5432'
 send_time = '23:00'
+
+
 # company_name = 'Yummy Cafe'
 # app_name = 'telegram'
 
@@ -49,6 +57,7 @@ class ExceptionHandler(telebot.ExceptionHandler):
         print(ex)
         bot.send_message(admins[0], ex)
         return True
+
 
 # 6425771542:AAHO12E22_BEz-srB25i99_L9al-ABCUH_w -- Cafe Bot
 # 6559204532:AAF2nawhBA3Mze0rm9hDIOgJ4-kpNJ9xVXQ -- LunchBot
@@ -77,15 +86,15 @@ cooks = []
 admin_pass = 'oaq873ergf'
 cook_pass = 'zRgcu*T{zB'
 companies = {}
-orders_params = get_table_columns(get_connection(), orders_table_name)
+cnx = get_connection()
+orders_params = get_table_columns(cnx, orders_table_name)
+cnx.close()
 ord_par_str = '('
 for el in orders_params:
     ord_par_str += el
     ord_par_str += ', '
 ord_par_str = ord_par_str[:-2]
 ord_par_str += ')'
-
-
 
 
 # print(companies)
@@ -99,6 +108,7 @@ def update_users():
     # cooks.append(589562037)
     admins = get_all_users_id_as_list(cnx, users_table_name, 'admin')
     user_nicknames = get_all_users_nicknames_as_dict(cnx)
+    cnx.close()
 
 
 update_users()
@@ -293,7 +303,7 @@ def create_orders_file(message=None):
             f.write(f'Заказ {order_date} {order_time}; {message.chat.id}\n')
             f.write(f'{user_nicknames[message.chat.id]}\n')
             for dish, num in sys_orders[message.chat.id].items():
-                f.write(f'{dish}: {num} * {sys_dish_prices[dish]} = {round(num * sys_dish_prices[dish],2)}\n')
+                f.write(f'{dish}: {num} * {sys_dish_prices[dish]} = {round(num * sys_dish_prices[dish], 2)}\n')
             f.write(f'\n'
                     f'Итого: {sys_totals[message.chat.id]}')
             f.write('\n_______________\n\n')
@@ -410,9 +420,9 @@ def write_order_in_db(message):
         ceuniref2 = 'null'
         tedocpay = '01.01.0001 00:00:00'
         (dat, tim) = order_timings[message.chat.id]
-        dat = dat.replace('.','')
-        ceuniref1 = f'Order {message.chat.id} {dat}{tim.replace(":","")}'
-        tedocins = f'{dat}{tim.replace(":","")}'
+        dat = dat.replace('.', '')
+        ceuniref1 = f'Order {message.chat.id} {dat}{tim.replace(":", "")}'
+        tedocins = f'{dat}{tim.replace(":", "")}'
 
         # Для записи наименований
         for dish, num in order.items():
@@ -455,6 +465,7 @@ def write_order_in_db(message):
                     '{cedoccod}', {tedocact}, '{tedocins}', '{tedocpay}', {ceobide}, {ceobnam}, {ceobtyp},
                      {ceobmea}, {neopexp}, {neoppric}, {neopsumc}, {neopdelc}, {neoptotc});"""
         insert(cnx, orders_table_name, ord_par_str, value)
+        cnx.close()
     except Exception as e:
         bot.send_message(admins[0], f'write_in_db doesnt works: \n{e}')
 
@@ -492,9 +503,10 @@ def start(message):
 @bot.message_handler(commands=['stop'])
 def stop(message):
     global users_table_name  # Пришлось заменить, тк выдавало ошибку при users_table_name
-
-    delete(get_connection(), users_table_name, f'user_tgid={message.chat.id}')
+    cnx = get_connection()
+    delete(cnx, users_table_name, f'user_tgid={message.chat.id}')
     bot.send_message(message.chat.id, 'Вы были удалены из базы данных')
+    cnx.close()
 
 
 # Обработка команды /role
@@ -642,7 +654,7 @@ def bot_message(message):
                     tmpdish_prices.update(i)
                 if menu != tmpmenu:
                     menu = tmpmenu
-                    dish_prices=tmpdish_prices
+                    dish_prices = tmpdish_prices
                     menu_date, menu_date_obj, dish_info = tmpmenu_date, tmpmenu_date_obj, tmpdish_info
                     all_orders, totals, order_timings = {}, {}, {}
                 bot.send_message(message.chat.id, create_message_menu(),
@@ -722,16 +734,19 @@ def download_menu_file(message):
 send_time = '14:00'
 send_users_table_day = 16
 
+
 # Не работает, тк изменили бд
 def increase_totals_in_db():
     global users_table_name, admins
 
     try:
         totals = get_orders_vars_from_sys()['Totals']
+        cnx = get_connection()
         for user, price in totals.items():
-            increase_func(get_connection(), users_table_name,
+            increase_func(cnx, users_table_name,
                           'total_in_month', 'total_in_month + ' + str(price),
                           f'user_tgid = {user};')
+        cnx.close()
     except Exception as e:
         bot.send_message(admins[0], f'increase bad\n{e}')
 
