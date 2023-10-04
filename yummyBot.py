@@ -59,9 +59,6 @@ class ExceptionHandler(telebot.ExceptionHandler):
         return True
 
 
-# 6425771542:AAHO12E22_BEz-srB25i99_L9al-ABCUH_w -- Cafe Bot
-# 6559204532:AAF2nawhBA3Mze0rm9hDIOgJ4-kpNJ9xVXQ -- LunchBot
-
 bot = telebot.TeleBot(TOKEN,
                       exception_handler=ExceptionHandler())
 
