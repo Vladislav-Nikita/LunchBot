@@ -234,8 +234,9 @@ def create_buttons(categ=None, user_id=None, lvl=None):
         for m in menu:
             btn_arr.append(types.KeyboardButton(text=f'{m}'))
         markup.add(*btn_arr)
-        add_time_button = types.KeyboardButton(text='Добавить время заказа')
-        markup.add(add_time_button)
+        add_time_btn = types.KeyboardButton(text='Добавить время заказа')
+        del_time_btn = types.KeyboardButton(text='Убрать время заказа')
+        markup.row(add_time_btn, del_time_btn)
         markup.row(confirm_btn, remove_btn, clear_btn)
         return markup
     elif categ is not None and user_id is None:  # Создание меню второго уровня
@@ -670,6 +671,13 @@ def bot_message(message):
                 all_tedocacts.update({message.chat.id: message.text})
                 bot.send_message(message.chat.id, f'Время вашего заказа: {all_tedocacts[message.chat.id]}',
                                  reply_markup=create_buttons())
+
+            elif message.text == 'Убрать время заказа':
+                if message.chat.id in all_tedocacts:
+                    del all_tedocacts[message.chat.id]
+                    bot.send_message(message.chat.id, 'Время заказа убрано')
+                else:
+                    bot.send_message(message.chat.id, 'Время заказа не было установлено')
 
             elif message.text == 'Обновить меню':
                 tmpmenu, tmpdish_prices, tmpmenu_date, tmpmenu_date_obj, tmpdish_info = {}, {}, '', None, {}
