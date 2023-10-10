@@ -1,6 +1,8 @@
+import math
+import re
 import telebot
 from telebot import types
-from datetime import datetime
+from datetime import datetime, timedelta
 from pg_bot_funcs import *
 from time import sleep
 from ast import literal_eval
@@ -41,8 +43,8 @@ try:
 except Exception as e:
     bot.send_message(admins[0], f"ini_file doesn't works\n{e}")
 
-db_host = 'localhost'
-db_port = '5432'
+# db_host = 'localhost'
+# db_port = '5432'
 send_time = '23:00'
 
 
@@ -58,6 +60,9 @@ class ExceptionHandler(telebot.ExceptionHandler):
         bot.send_message(admins[0], ex)
         return True
 
+
+# 6425771542:AAHO12E22_BEz-srB25i99_L9al-ABCUH_w -- Cafe Bot
+# 6559204532:AAF2nawhBA3Mze0rm9hDIOgJ4-kpNJ9xVXQ -- LunchBot
 
 bot = telebot.TeleBot(TOKEN,
                       exception_handler=ExceptionHandler())
@@ -123,6 +128,8 @@ totals = {}
 # Хрянятся тайминги, когда пользователь заказал
 # {user_id1: (date, time), ...}
 order_timings = {}
+# Время, на которое делается заказ
+all_tedocacts = {}
 
 # Меню в виде
 # {category1: {dish1: price1, dish2: price2, ...}, ...}
@@ -210,6 +217,16 @@ def create_buttons(categ=None, user_id=None, lvl=None):
         markup.add(types.KeyboardButton(text='Обновить меню'))
         markup.add(types.KeyboardButton(text='Обновить меню'))
         return markup
+    elif lvl == 'time':
+        buttons = types.InlineKeyboardMarkup(row_width=3)
+        inc_btn = types.InlineKeyboardButton('+', callback_data="inc")
+        cur_time = types.InlineKeyboardButton(f'{all_tedocacts[user_id]}',
+                                              # {datetime.now().time().strftime("%H:%M")}
+                                              callback_data="None")
+        dec_btn = types.InlineKeyboardButton('-', callback_data="dec")
+        buttons.row(dec_btn, cur_time, inc_btn)
+        buttons.add(types.InlineKeyboardButton('Подтвердить', callback_data='conf_time'))
+        return buttons
     elif categ is None and user_id is None:  # Создание главного меню
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=3)
         # markup.add(types.KeyboardButton(text='Обновить меню'))
@@ -217,6 +234,8 @@ def create_buttons(categ=None, user_id=None, lvl=None):
         for m in menu:
             btn_arr.append(types.KeyboardButton(text=f'{m}'))
         markup.add(*btn_arr)
+        add_time_button = types.KeyboardButton(text='Добавить время заказа')
+        markup.add(add_time_button)
         markup.row(confirm_btn, remove_btn, clear_btn)
         return markup
     elif categ is not None and user_id is None:  # Создание меню второго уровня
@@ -415,40 +434,43 @@ def write_order_in_db(message):
         order = all_orders[message.chat.id]
         ceuniref0 = UCN
         ceuniref2 = 'null'
-        tedocpay = '01.01.0001 00:00:00'
+        tedocpay = '\'01.01.0001 00:00:00\''
         (dat, tim) = order_timings[message.chat.id]
         dat = dat.replace('.', '')
-        ceuniref1 = f'Order {message.chat.id} {dat}{tim.replace(":", "")}'
-        tedocins = f'{dat}{tim.replace(":", "")}'
+        ceuniref1 = f'\'Order {message.chat.id} {dat}{tim.replace(":", "")}\''
+        tedocins = f'\'{dat}{tim.replace(":", "")}\''
+        if message.chat.id in all_tedocacts:
+            tedocact = f'\'{all_tedocacts[message.chat.id]}\''
+        else:
+            tedocact = 'null'
 
         # Для записи наименований
         for dish, num in order.items():
             # ceunikey = datetime.now().strftime('%y%m%d%H%M%S%f')[:-3] + '0' + ceuniref0 + companies[app_name]
-            ceunikey = datetime.now().strftime('%y%m%d%H%M%S%f')[:-3] + '0' + ceuniref0 + str(message.chat.id)
+            ceunikey = "'" + datetime.now().strftime('%y%m%d%H%M%S%f')[:-3] + '0' + ceuniref0 + str(
+                message.chat.id) + "'"
             sleep(0.001)
-            ceunifol = f'{datetime.now().strftime("%Y%m%d %H:%M:%S")} {message.chat.id}'
-            cedoccod = 'Order'
-            tedocact = 'null'
+            ceunifol = f'\'{datetime.now().strftime("%Y%m%d %H:%M:%S")} {message.chat.id}\''
+            cedoccod = '\'Order\''
             ceobide = 'null'
-            ceobnam = dish
-            ceobtyp = 'ТОВАР'
+            ceobnam = "'" + dish + "'"
+            ceobtyp = '\'ТОВАР\''
             ceobmea = 'null'
             neopexp = num
             neoppric = dish_prices[dish]
             neopsumc = round(dish_prices[dish] * num, 2)
             neopdelc = 0  # Скидка от 0 до 1
             neoptotc = round((1 - neopdelc) * neopsumc, 2)
-            value = f"""('{ceunikey}', '{ceuniref0}', '{ceuniref1}', {ceuniref2}, '{ceunifol}', 
-            '{cedoccod}', {tedocact}, '{tedocins}', '{tedocpay}', {ceobide}, '{ceobnam}', '{ceobtyp}',
+            value = f"""({ceunikey}, {ceuniref0}, {ceuniref1}, {ceuniref2}, {ceunifol}, 
+            {cedoccod}, {tedocact}, {tedocins}, {tedocpay}, {ceobide}, {ceobnam}, {ceobtyp},
              {ceobmea}, {neopexp}, {neoppric}, {neopsumc}, {neopdelc}, {neoptotc});"""
             insert(cnx, orders_table_name, ord_par_str, value)
 
         #  Для записи Total
         # ceunikey = datetime.now().strftime('%y%m%d%H%M%S%f')[:-3] + '0' + ceuniref0 + companies[app_name]
-        ceunikey = datetime.now().strftime('%y%m%d%H%M%S%f')[:-3] + '0' + ceuniref0 + str(message.chat.id)
-        ceunifol = f'{dat} {tim} {message.chat.id}'
-        cedoccod = 'Total'
-        tedocact = 'null'
+        ceunikey = "'" + datetime.now().strftime('%y%m%d%H%M%S%f')[:-3] + '0' + ceuniref0 + str(message.chat.id) + "'"
+        ceunifol = f'\'{dat} {tim} {message.chat.id}\''
+        cedoccod = '\'Total\''
         ceobide = 'null'
         ceobnam = 'null'
         ceobtyp = 'null'
@@ -458,8 +480,8 @@ def write_order_in_db(message):
         neopsumc = totals[message.chat.id]
         neopdelc = 0  # Скидка от 0 до 1
         neoptotc = round((1 - neopdelc) * neopsumc, 2)
-        value = f"""('{ceunikey}', '{ceuniref0}', '{ceuniref1}', {ceuniref2}, '{ceunifol}', 
-                    '{cedoccod}', {tedocact}, '{tedocins}', '{tedocpay}', {ceobide}, {ceobnam}, {ceobtyp},
+        value = f"""({ceunikey}, {ceuniref0}, {ceuniref1}, {ceuniref2}, {ceunifol}, 
+                    {cedoccod}, {tedocact}, {tedocins}, {tedocpay}, {ceobide}, {ceobnam}, {ceobtyp},
                      {ceobmea}, {neopexp}, {neoppric}, {neopsumc}, {neopdelc}, {neoptotc});"""
         insert(cnx, orders_table_name, ord_par_str, value)
         cnx.close()
@@ -476,11 +498,22 @@ def on_delete_order(us_id):
             del order_timings[us_id]
         except:
             pass
+        try:
+            del all_tedocacts[us_id]
+        except:
+            pass
         create_sys_orders_file()
         # create_orders_file()
         # bot.send_message(us_id, 'Заказ пуст', reply_markup=create_buttons())
     except Exception as e:
         print(e)
+
+
+def round_dt(dt, delta):
+    return datetime.min + math.ceil((dt - datetime.min) / delta + 0.5) * delta
+
+
+delta = timedelta(minutes=10)
 
 
 @bot.message_handler(commands=['start'])
@@ -618,6 +651,26 @@ def bot_message(message):
                 else:
                     bot.send_message(message.chat.id, 'Ваш заказ пуст')
 
+            elif message.text == 'Добавить время заказа':
+                all_tedocacts.update(
+                    {message.chat.id: datetime.time(round_dt(datetime.now(), delta)).strftime("%H:%M")})
+                buttons = types.InlineKeyboardMarkup(row_width=3)
+                inc_btn = types.InlineKeyboardButton('+', callback_data="inc")
+                cur_time = types.InlineKeyboardButton(f'{all_tedocacts[message.chat.id]}',
+                                                      # {datetime.now().time().strftime("%H:%M")}
+                                                      callback_data="None")
+                dec_btn = types.InlineKeyboardButton('-', callback_data="dec")
+                buttons.row(dec_btn, cur_time, inc_btn)
+                buttons.add(types.InlineKeyboardButton('Подтвердить', callback_data='conf_time'))
+
+                bot.send_message(message.chat.id, 'Введите время, к которому приготовить заказ:',
+                                 reply_markup=buttons)
+
+            elif re.fullmatch(r'\d\d:\d\d', message.text):
+                all_tedocacts.update({message.chat.id: message.text})
+                bot.send_message(message.chat.id, f'Время вашего заказа: {all_tedocacts[message.chat.id]}',
+                                 reply_markup=create_buttons())
+
             elif message.text == 'Обновить меню':
                 tmpmenu, tmpdish_prices, tmpmenu_date, tmpmenu_date_obj, tmpdish_info = {}, {}, '', None, {}
 
@@ -697,6 +750,29 @@ def bot_message(message):
                 unknown_user(message.chat.id)
 
     except Exception as e:
+        bot.send_message(admins[0], str(e))
+
+
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    try:
+        if call.data == "inc":
+            all_tedocacts.update({call.message.chat.id: datetime.time(
+                datetime.strptime(all_tedocacts[call.message.chat.id], "%H:%M") + delta).strftime('%H:%M')})
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                                  text='Введите время, к которому приготовить заказ',
+                                  reply_markup=create_buttons(user_id=call.message.chat.id, lvl='time'))
+        elif call.data == "dec":
+            all_tedocacts.update({call.message.chat.id: datetime.time(
+                datetime.strptime(all_tedocacts[call.message.chat.id], "%H:%M") - delta).strftime('%H:%M')})
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                                  text='Введите время, к которому приготовить заказ',
+                                  reply_markup=create_buttons(user_id=call.message.chat.id, lvl='time'))
+        elif call.data == 'conf_time':
+            bot.send_message(call.message.chat.id, f'Время вашего заказа: {all_tedocacts[call.message.chat.id]}',
+                             reply_markup=create_buttons())
+    except Exception as e:
+        print(e)
         bot.send_message(admins[0], str(e))
 
 
